@@ -30,6 +30,18 @@ const
   graphBroadcast* = "0nMmbMh-_JwwRRFNXkyH3Q/BroadcastQuery"
   restLiveStream* = "1.1/live_video_stream/status/"
 
+  # NOTE: X's old TwitterArticleByRestId endpoint now rejects public Article
+  # ids as bad requests. Current web fetches Article bodies through
+  # TweetResultByRestId with Article rich-content field toggles enabled.
+  graphArticle* = "uEyKTt72BfzaY84WLGC5Dw/TweetResultByRestId"
+
+  articleFieldToggles* = """{
+  "withArticleRichContentState": true,
+  "withArticlePlainText": false,
+  "withArticleSummaryText": true,
+  "withArticleVoiceOver": true
+}"""
+
   gqlFeatures* = """{
   "android_ad_formats_media_component_render_overlay_enabled": false,
   "android_graphql_skip_api_media_color_palette": false,

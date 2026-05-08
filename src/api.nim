@@ -39,12 +39,13 @@ proc userTweetsAndRepliesUrl(id: string; cursor: string): ApiReq =
     oauth: apiUrl(graphUserTweetsAndRepliesV2, restIdVars % [id, cursor, "20"])
   )
 
-proc tweetDetailUrl(id: string; cursor: string): ApiReq =
+proc tweetDetailUrl(id: string; cursor: string; includeArticle=false): ApiReq =
   let cookieVars = tweetDetailVars % [id, cursor]
+  let fieldToggles = if includeArticle: articleFieldToggles else: ""
   result = ApiReq(
     # cookie: apiUrl(graphTweetDetail, cookieVars, tweetDetailFieldToggles),
-    cookie: apiUrl(graphTweet, tweetVars % [id, cursor]),
-    oauth: apiUrl(graphTweet, tweetVars % [id, cursor])
+    cookie: apiUrl(graphTweet, tweetVars % [id, cursor], fieldToggles),
+    oauth: apiUrl(graphTweet, tweetVars % [id, cursor], fieldToggles)
   )
 
 proc userUrl(username: string): ApiReq =
@@ -83,6 +84,14 @@ proc getBroadcastInfo*(id: string): Future[Broadcast] {.async.} =
     req = apiReq(graphBroadcast, """{"id":"$1"}""" % id)
     js = await fetch(req)
   result = parseBroadcastInfo(js)
+
+proc getGraphArticle*(id: string): Future[Article] {.async.} =
+  if id.len == 0: return
+  let
+    variables = """{"tweetId":"$1","includePromotedContent":true,"withBirdwatchNotes":true,"withVoice":true,"withCommunity":true}""" % id
+    req = apiReq(graphArticle, variables, articleFieldToggles)
+    js = await fetch(req)
+  result = parseGraphArticle(js)
 
 proc fetchBroadcastStream*(mediaKey: string): Future[string] {.async.} =
   if mediaKey.len == 0: return
@@ -148,19 +157,19 @@ proc getGraphTweetResult*(id: string): Future[Tweet] {.async.} =
     js = await fetch(url)
   result = parseGraphTweetResult(js)
 
-proc getGraphTweet(id: string; after=""): Future[Conversation] {.async.} =
+proc getGraphTweet(id: string; after=""; includeArticle=false): Future[Conversation] {.async.} =
   if id.len == 0: return
   let
     cursor = if after.len > 0: "\"cursor\":\"$1\"," % after else: ""
-    js = await fetch(tweetDetailUrl(id, cursor))
+    js = await fetch(tweetDetailUrl(id, cursor, includeArticle))
   result = parseGraphConversation(js, id)
 
 proc getReplies*(id, after: string): Future[Result[Chain]] {.async.} =
   result = (await getGraphTweet(id, after)).replies
   result.beginning = after.len == 0
 
-proc getTweet*(id: string; after=""): Future[Conversation] {.async.} =
-  result = await getGraphTweet(id)
+proc getTweet*(id: string; after=""; includeArticle=false): Future[Conversation] {.async.} =
+  result = await getGraphTweet(id, includeArticle=includeArticle)
   if after.len > 0:
     result.replies = await getReplies(id, after)
 

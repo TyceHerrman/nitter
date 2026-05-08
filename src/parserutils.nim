@@ -187,10 +187,11 @@ proc extractSlice(js: JsonNode): Slice[int] =
 proc extractUrls(result: var seq[ReplaceSlice]; js: JsonNode;
                  textLen: int; hideTwitter = false) =
   let
-    url = js.getExpandedUrl
+    rawUrl = js.getExpandedUrl
+    url = rawUrl.localizeTwitterArticleUrl
     slice = js.extractSlice
 
-  if hideTwitter and slice.b.succ >= textLen and url.isTwitterUrl:
+  if hideTwitter and slice.b.succ >= textLen and rawUrl.isTwitterUrl:
     if slice.a < textLen:
       result.add ReplaceSlice(kind: rkRemove, slice: slice)
   else:
@@ -248,7 +249,7 @@ proc expandUserEntities*(user: var User; js: JsonNode) =
     ent = ? js{"entities"}
 
   with urls, ent{"url", "urls"}:
-    user.website = urls[0].getExpandedUrl
+    user.website = urls[0].getExpandedUrl.localizeTwitterArticleUrl
 
   var replacements = newSeq[ReplaceSlice]()
 
@@ -278,7 +279,7 @@ proc expandTextEntities(tweet: Tweet; entities: JsonNode; text: string; textSlic
       replacements.extractUrls(u, textSlice.b, hideTwitter = hasRedundantLink)
 
       if hasCard and u{"url"}.getStr == get(tweet.card).url:
-        get(tweet.card).url = u.getExpandedUrl
+        get(tweet.card).url = u.getExpandedUrl.localizeTwitterArticleUrl
 
   with media, entities{"media"}:
     for m in media:
@@ -343,7 +344,7 @@ proc expandTextEntitiesV2(tweet: Tweet; js: JsonNode; text: string; textSlice: S
       replacements.extractUrls(u, textSlice.b, hideTwitter = hasRedundantLink)
 
       if hasCard and u{"url"}.getStr == get(tweet.card).url:
-        get(tweet.card).url = u.getExpandedUrl
+        get(tweet.card).url = u.getExpandedUrl.localizeTwitterArticleUrl
 
   with hashtags, js{"details", "hashtag_entities"}:
     for hashtag in hashtags:

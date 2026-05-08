@@ -127,6 +127,71 @@ type
     availableForReplay*: bool
     user*: User
 
+  Article* = ref object
+    id*: string
+    title*: string
+    coverImage*: string
+    user*: User
+    time*: DateTime
+    paragraphs*: seq[ArticleParagraph]
+    entities*: Table[int, ArticleEntity]
+    media*: Table[string, ArticleMedia]
+
+  ArticleParagraph* = object
+    text*: string
+    baseType*: ArticleType
+    inlineStyleRanges*: seq[ArticleStyleRange]
+    entityRanges*: seq[ArticleEntityRange]
+
+  ArticleType* {.pure.} = enum
+    headerOne = "header-one"
+    headerTwo = "header-two"
+    headerThree = "header-three"
+    orderedListItem = "ordered-list-item"
+    unorderedListItem = "unordered-list-item"
+    unstyled = "unstyled"
+    atomic = "atomic"
+    unknown
+
+  ArticleStyleRange* = object
+    offset*: int
+    length*: int
+    style*: ArticleStyle
+
+  ArticleStyle* {.pure.} = enum
+    bold = "BOLD"
+    italic = "ITALIC"
+    strikethrough = "STRIKETHROUGH"
+    unknown
+
+  ArticleEntityRange* = object
+    offset*: int
+    length*: int
+    key*: int
+
+  ArticleEntity* = object
+    entityType*: ArticleEntityType
+    url*: string
+    mediaIds*: seq[string]
+    tweetId*: string
+    twemoji*: string
+
+  ArticleEntityType* {.pure.} = enum
+    link = "LINK"
+    media = "MEDIA"
+    tweet = "TWEET"
+    twemoji = "TWEMOJI"
+    unknown
+
+  ArticleMedia* = object
+    mediaType*: ArticleMediaType
+    url*: string
+
+  ArticleMediaType* {.pure.} = enum
+    image = "ApiImage"
+    gif = "ApiGif"
+    unknown
+
   VideoType* = enum
     m3u8 = "application/x-mpegURL"
     mp4 = "video/mp4"
@@ -289,6 +354,8 @@ type
 
   Conversation* = ref object
     tweet*: Tweet
+    article*: Article
+    hasArticle*: bool
     before*: Chain
     after*: Chain
     replies*: Result[Chain]

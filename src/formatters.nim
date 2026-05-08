@@ -14,6 +14,11 @@ let
   xRegex = re"(?<=(?<!\S)https:\/\/|(?<=\s))(www\.|mobile\.)?x\.com"
   xLinkRegex = re"""<a href="https:\/\/x.com([^"]+)">x\.com(\S+)</a>"""
 
+  twitterInternalUrlRegex = re"""https?://(?:www\.|mobile\.|m\.)?(?:twitter|x)\.com/[A-Za-z0-9_]{1,15}/(?:article|status)/[0-9]+(?:[?#][^"'<>\s]*)?"""
+
+  hashtagRegex = re"\B#(\w*[A-Za-z]\w*)\b"
+  mentionRegex = re"\B@(\w{1,15})\b"
+
   ytRegex = re(r"([A-z.]+\.)?youtu(be\.com|\.be)", {reStudy, reIgnoreCase})
 
   rdRegex = re"(?<![.b])((www|np|new|amp|old)\.)?reddit.com"
@@ -55,8 +60,61 @@ proc stripHtml*(text: string; shorten=false): string =
 proc sanitizeXml*(text: string): string =
   text.replace(illegalXmlRegex, "")
 
-proc replaceUrls*(body: string; prefs: Prefs; absolute=""): string =
+proc isTwitterHost(host: string): bool =
+  let host = host.toLowerAscii
+  host in [
+    "x.com", "www.x.com", "mobile.x.com", "m.x.com",
+    "twitter.com", "www.twitter.com", "mobile.twitter.com", "m.twitter.com"
+  ]
+
+proc localizeTwitterArticleUrl*(url: string): string =
+  result = url
+  let lowerUrl = url.toLowerAscii
+  if "x.com" notin lowerUrl and "twitter.com" notin lowerUrl:
+    return
+
+  let parsed = parseUri(url)
+  if parsed.scheme notin ["http", "https"] or
+     not parsed.hostname.isTwitterHost:
+    return
+
+  let parts = parsed.path.strip(chars={'/'}).split('/')
+  if parts.len != 3:
+    return
+
+  let
+    username = parts[0]
+    kind = parts[1]
+    id = parts[2]
+
+  if username.len == 0 or username.toLowerAscii == "i" or
+     kind notin ["article", "status"] or id.len == 0:
+    return
+
+  for c in id:
+    if not c.isDigit:
+      return
+
+  result = &"/{username}/{kind}/{id}"
+  if parsed.query.len > 0:
+    result &= "?" & parsed.query
+  if parsed.anchor.len > 0:
+    result &= "#" & parsed.anchor
+
+proc localizeTwitterArticleLinks*(body: string): string =
   result = body
+  for url in body.findAll(twitterInternalUrlRegex):
+    let local = localizeTwitterArticleUrl(url)
+    if local != url:
+      result = result.replace(url, local)
+
+proc replaceHashtagsAndMentions*(body: string): string =
+  result = body
+  result = result.replacef(hashtagRegex, """<a href="/search?q=%23$1">#$1</a>""")
+  result = result.replacef(mentionRegex, """<a href="/$1">@$1</a>""")
+
+proc replaceUrls*(body: string; prefs: Prefs; absolute=""): string =
+  result = body.localizeTwitterArticleLinks
 
   if prefs.replaceYouTube.len > 0 and "youtu" in result:
     let youtubeHost = strip(prefs.replaceYouTube, chars={'/'})

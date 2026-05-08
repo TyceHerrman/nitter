@@ -1,0 +1,138 @@
+.article-page {
+  max-width: 740px;
+  width: 100%;
+  margin: 20px auto 0;
+}
+
+.article-panel {
+  background-color: var(--bg_panel);
+  border: 1px solid var(--border_grey);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+img.article-cover {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  object-fit: cover;
+}
+
+article {
+  padding: 24px 28px 32px;
+  color: var(--fg_color);
+
+  .article-title {
+    display: block;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0 0 14px;
+    word-wrap: break-word;
+  }
+
+  .article-author {
+    margin-bottom: 10px;
+    font-size: 14px;
+
+    .article-author-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--fg_color);
+
+      img {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+      }
+    }
+
+    .article-author-names {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.2;
+    }
+
+    .article-author-fullname strong {
+      font-weight: 600;
+    }
+
+    .article-author-username {
+      color: var(--fg_dark);
+      font-size: 13px;
+    }
+  }
+
+  .article-time {
+    display: block;
+    color: var(--fg_faded);
+    font-size: 13px;
+    margin-bottom: 22px;
+  }
+
+  h1,
+  h2,
+  h3 {
+    display: block;
+    margin: 28px 0 10px;
+    font-weight: 600;
+    line-height: 1.3;
+    word-wrap: break-word;
+  }
+
+  h1 { font-size: 26px; }
+  h2 { font-size: 22px; }
+  h3 { font-size: 18px; }
+
+  p {
+    font-size: 17px;
+    line-height: 1.55;
+    margin: 18px 0;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+  }
+
+  ul,
+  ol {
+    margin: 18px 0 18px 24px;
+    padding-left: 0;
+
+    li {
+      font-size: 17px;
+      line-height: 1.55;
+      margin: 6px 0;
+    }
+  }
+
+  span.article-media {
+    display: block;
+    text-align: center;
+    margin: 22px 0;
+
+    img,
+    video {
+      max-width: 100%;
+      border-radius: 12px;
+      display: inline-block;
+    }
+  }
+
+  img.twemoji {
+    display: inline;
+    width: 1.1em;
+    height: 1.1em;
+    vertical-align: text-bottom;
+    margin: 0 1px;
+    border-radius: 0;
+  }
+
+  .article-tweet-missing {
+    padding: 12px;
+    margin: 22px 0;
+    border: 1px solid var(--border_grey);
+    border-radius: 8px;
+    color: var(--fg_faded);
+    font-style: italic;
+  }
+}

@@ -6,6 +6,7 @@ import jester, karax/vdom
 import router_utils
 import ".."/[types, formatters, api]
 import ../views/[general, status]
+import article
 
 export uri, sequtils, options, sugar
 export router_utils
@@ -30,7 +31,28 @@ proc createStatusRouter*(cfg: Config) =
           resp Http204
         resp $renderReplies(replies, prefs, getPath())
 
-      let conv = await getTweet(id, getCursor())
+      var
+        article: Article
+        conv: Conversation
+
+      try:
+        conv = await getTweet(id, getCursor(), includeArticle=true)
+      except:
+        discard
+
+      if conv != nil and conv.article != nil and conv.article.id.len > 0:
+        let html = await renderArticleMain(conv.article, request, cfg, prefs)
+        resp html
+
+      if conv != nil and conv.hasArticle:
+        try:
+          article = await getGraphArticle(id)
+        except:
+          discard
+
+      if article != nil and article.id.len > 0:
+        let html = await renderArticleMain(article, request, cfg, prefs)
+        resp html
 
       if conv == nil or conv.tweet == nil or conv.tweet.id == 0:
         var error = "Tweet not found"

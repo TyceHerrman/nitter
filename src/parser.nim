@@ -130,6 +130,127 @@ proc parseBroadcastInfo*(js: JsonNode): Broadcast =
     user: parseGraphUser(bc)
   )
 
+proc hasGraphArticle*(tweet: JsonNode): bool =
+  tweet{"article", "article_results", "result"}.notNull
+
+proc parseGraphArticleFromTweet*(tweet: JsonNode): Article =
+  if tweet.isNull:
+    return
+
+  let article = tweet{"article", "article_results", "result"}
+  if article.isNull:
+    return
+
+  # Validate and parse the content state FIRST. If this fails, we leave
+  # `result` as nil so the route handler's nil-check returns Http404 instead
+  # of rendering a blank-bodied article page from a half-populated object.
+  let content = article{"content_state"}
+  if content.isNull:
+    return
+
+  let meta = article{"metadata"}
+  var
+    user = parseGraphUser(tweet{"core"})
+    published: DateTime
+
+  try:
+    let seconds = parseBiggestInt(meta{"first_published_at_secs"}.getStr("0"))
+    if seconds > 0:
+      published = fromUnix(seconds).utc()
+  except ValueError:
+    discard
+
+  result = Article(
+    id: article{"rest_id"}.getStr,
+    title: article{"title"}.getStr,
+    coverImage: article{"cover_media", "media_info", "original_img_url"}.getStr,
+    user: user,
+    time: published,
+  )
+
+  proc parseType(s: string): ArticleType =
+    try: parseEnum[ArticleType](s)
+    except ValueError: ArticleType.unknown
+
+  proc parseStyle(s: string): ArticleStyle =
+    try: parseEnum[ArticleStyle](s)
+    except ValueError: ArticleStyle.unknown
+
+  proc parseEntityType(s: string): ArticleEntityType =
+    try: parseEnum[ArticleEntityType](s)
+    except ValueError: ArticleEntityType.unknown
+
+  proc parseMediaType(s: string): ArticleMediaType =
+    try: parseEnum[ArticleMediaType](s)
+    except ValueError: ArticleMediaType.unknown
+
+  for p in content{"blocks"}:
+    var paragraph = ArticleParagraph(
+      text: p{"text"}.getStr,
+      baseType: parseType(p{"type"}.getStr)
+    )
+    for sr in p{"inlineStyleRanges"}:
+      let style = parseStyle(sr{"style"}.getStr)
+      if style != ArticleStyle.unknown:
+        paragraph.inlineStyleRanges.add ArticleStyleRange(
+          offset: sr{"offset"}.getInt,
+          length: sr{"length"}.getInt,
+          style: style
+        )
+    for er in p{"entityRanges"}:
+      paragraph.entityRanges.add ArticleEntityRange(
+        offset: er{"offset"}.getInt,
+        length: er{"length"}.getInt,
+        key: er{"key"}.getInt
+      )
+    result.paragraphs.add paragraph
+
+  # entityMap is keyed by stringified integers that entity ranges reference
+  # directly via `key`. Store as Table[int, ArticleEntity] so lookups don't
+  # depend on iteration order.
+  for key, rawEntity in content{"entityMap"}:
+    var idx: int
+    try: idx = parseInt(key)
+    except ValueError: continue
+
+    let jEntity =
+      if rawEntity{"value"}.notNull: rawEntity{"value"}
+      else: rawEntity
+    var entity = ArticleEntity(entityType: parseEntityType(jEntity{"type"}.getStr))
+    case entity.entityType
+    of ArticleEntityType.link:
+      entity.url = jEntity{"data", "url"}.getStr
+    of ArticleEntityType.media:
+      for jMedia in jEntity{"data", "mediaItems"}:
+        entity.mediaIds.add jMedia{"mediaId"}.getStr
+    of ArticleEntityType.tweet:
+      entity.tweetId = jEntity{"data", "tweetId"}.getStr
+    of ArticleEntityType.twemoji:
+      entity.twemoji = jEntity{"data", "url"}.getStr
+    of ArticleEntityType.unknown:
+      discard
+    result.entities[idx] = entity
+
+  for m in article{"media_entities"}:
+    let mediaInfo = m{"media_info"}
+    var media = ArticleMedia(mediaType: parseMediaType(mediaInfo{"__typename"}.getStr))
+    case media.mediaType
+    of ArticleMediaType.image:
+      media.url = mediaInfo{"original_img_url"}.getStr
+    of ArticleMediaType.gif:
+      with variants, mediaInfo{"variants"}:
+        if variants.len > 0:
+          media.url = variants[0]{"url"}.getStr
+    of ArticleMediaType.unknown:
+      discard
+    result.media[m{"media_id"}.getStr] = media
+
+proc parseGraphArticle*(js: JsonNode): Article =
+  if js.isNull or not js{"errors"}.isNull:
+    return
+
+  result = parseGraphArticleFromTweet(js{"data", "tweetResult", "result"})
+
 proc parseGraphList*(js: JsonNode): List =
   if js.isNull: return
 
@@ -625,6 +746,9 @@ proc parseGraphConversation*(js: JsonNode; tweetId: string): Conversation =
 
             if entryId.endsWith(tweetId):
               result.tweet = tweet
+              result.hasArticle = hasGraphArticle(tweetResult)
+              if result.hasArticle:
+                result.article = parseGraphArticleFromTweet(tweetResult)
             else:
               result.before.content.add tweet
           elif not entryId.endsWith(tweetId):
